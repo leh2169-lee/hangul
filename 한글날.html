@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>한글날 계기교육 - 나만의 한글 꾸미기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-bg: #FFFBEB;
+        }
+
+        body {
+            font-family: 'Jua', sans-serif;
+            background-color: var(--primary-bg);
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling on smartboard */
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none; /* Crucial for custom canvas/drag logic */
+        }
+
+        /* SVG Jamo Path Styling */
+        .jamo-path {
+            stroke: #E5E7EB; /* Light gray initially */
+            stroke-width: 35;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            pointer-events: stroke; /* Only register clicks on the stroke */
+            cursor: pointer;
+            transition: stroke 0.15s ease, stroke-width 0.15s ease;
+        }
+        
+        .jamo-path:active {
+            stroke-width: 45;
+        }
+
+        /* Sticker Styles */
+        .sticker-item {
+            touch-action: none;
+        }
+
+        /* Canvas Styles */
+        #name-canvas {
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        /* Print CSS - Hide tools, format artboard */
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 0;
+            }
+            body {
+                background-color: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            #toolbar {
+                display: none !important;
+            }
+            #artboard-container {
+                width: 100vw !important;
+                height: 100vh !important;
+                padding: 0 !important;
+                border: none !important;
+                background-color: white !important;
+                box-shadow: none !important;
+            }
+            #artboard {
+                border: none !important;
+            }
+            /* Adjust sizes slightly for print if needed */
+            .print-title {
+                font-size: 3rem !important;
+            }
+        }
+    </style>
+    <!-- PDF 저장을 위한 html2pdf 라이브러리 추가 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body class="w-screen h-screen flex">
+
+    <div id="artboard-container" class="w-4/5 h-full p-6 flex flex-col items-center justify-center bg-blue-50 transition-all">
+        
+        <div id="artboard" class="w-full h-full bg-white rounded-[3rem] shadow-2xl border-8 border-dashed border-blue-200 p-8 flex flex-col relative overflow-hidden">
+            
+            <h1 class="print-title text-5xl md:text-6xl text-blue-800 text-center mb-4 drop-shadow-sm">아름다운 우리 한글</h1>
+            
+            <!-- 1. Text Coloring Activity (SVG) -->
+            <div class="w-full flex-1 flex items-center justify-center relative z-10 min-h-[300px]">
+                <svg viewBox="0 0 1200 450" class="w-full max-h-full drop-shadow-md">
+                    <!-- 한 (Han) -->
+                    <g>
+                        <!-- ㅎ -->
+                        <path class="jamo-path" d="M 120 80 L 240 80 M 80 140 L 280 140 M 240,240 A 60,60 0 1,1 120,240 A 60,60 0 1,1 240,240" />
+                        <!-- ㅏ -->
+                        <path class="jamo-path" d="M 340 70 L 340 300 M 340 180 L 400 180" />
+                        <!-- ㄴ -->
+                        <path class="jamo-path" d="M 100 360 L 100 430 L 340 430" />
+                    </g>
+                    <!-- 글 (Geul) -->
+                    <g>
+                        <!-- ㄱ -->
+                        <path class="jamo-path" d="M 480 100 L 680 100 L 680 220" />
+                        <!-- ㅡ -->
+                        <path class="jamo-path" d="M 460 290 L 700 290" />
+                        <!-- ㄹ -->
+                        <path class="jamo-path" d="M 480 350 L 680 350 L 680 395 L 480 395 L 480 440 L 680 440" />
+                    </g>
+                    <!-- 날 (Nal) -->
+                    <g>
+                        <!-- ㄴ -->
+                        <path class="jamo-path" d="M 880 100 L 880 220 L 1030 220" />
+                        <!-- ㅏ -->
+                        <path class="jamo-path" d="M 1110 70 L 1110 300 M 1110 180 L 1170 180" />
+                        <!-- ㄹ -->
+                        <path class="jamo-path" d="M 880 350 L 1080 350 L 1080 395 L 880 395 L 880 440 L 1080 440" />
+                    </g>
+                </svg>
+            </div>
+
+            <!-- 2. Sticker Container (Stickers dropped here via JS) -->
+            <div id="sticker-layer" class="absolute inset-0 pointer-events-none z-20">
+                <!-- Cloned stickers will have pointer-events-auto -->
+            </div>
+
+            <!-- 3. Fine Motor Name Writing (Canvas) -->
+            <div class="w-full h-[30%] bg-orange-50/50 rounded-[2rem] border-4 border-orange-200 mt-4 flex flex-col relative z-30">
+                <div class="absolute -top-5 left-10 bg-orange-200 text-orange-800 px-6 py-2 rounded-full text-2xl font-bold shadow-sm border-2 border-orange-300">
+                    내 이름 쓰기 ✏️
+                </div>
+                <!-- Canvas wrapper for accurate sizing -->
+                <div id="canvas-wrapper" class="flex-1 w-full h-full p-2 mt-4">
+                    <canvas id="name-canvas" class="w-full h-full bg-transparent rounded-xl"></canvas>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <div id="toolbar" class="w-1/5 h-full bg-white border-l-8 border-gray-200 shadow-[-10px_0_20px_rgba(0,0,0,0.05)] flex flex-col p-4 z-40">
+        
+        <!-- Action Buttons -->
+        <div class="flex gap-2 mb-8 w-full">
+            <button onclick="window.print()" class="flex-1 bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-xl py-4 rounded-2xl font-bold shadow-[0_6px_0_#1d4ed8] active:shadow-[0_0px_0_#1d4ed8] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1">
+                <span class="text-3xl">🖨️</span>
+                <span>출력</span>
+            </button>
+            <button onclick="saveAsPDF()" class="flex-1 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white text-xl py-4 rounded-2xl font-bold shadow-[0_6px_0_#15803d] active:shadow-[0_0px_0_#15803d] active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1">
+                <span class="text-3xl">💾</span>
+                <span>PDF 저장</span>
+            </button>
+        </div>
+
+        <h2 class="text-3xl text-gray-700 mb-4 font-bold border-b-4 border-pink-200 pb-2">스티커 팔레트</h2>
+        <p class="text-lg text-gray-500 mb-4 leading-tight">스티커를 꾹 눌러서 도화지로 끌어오세요!</p>
+        
+        <!-- Sticker Palette -->
+        <div id="palette" class="grid grid-cols-2 gap-4 mb-auto">
+            <div class="palette-sticker text-6xl cursor-pointer hover:scale-110 active:scale-95 transition-transform text-center drop-shadow-md">🌸</div>
+            <div class="palette-sticker text-6xl cursor-pointer hover:scale-110 active:scale-95 transition-transform text-center drop-shadow-md">⭐</div>
+            <div class="palette-sticker text-6xl cursor-pointer hover:scale-110 active:scale-95 transition-transform text-center drop-shadow-md">💖</div>
+            <div class="palette-sticker text-6xl cursor-pointer hover:scale-110 active:scale-95 transition-transform text-center drop-shadow-md">👑</div>
+            <div class="palette-sticker text-6xl cursor-pointer hover:scale-110 active:scale-95 transition-transform text-center drop-shadow-md">🎀</div>
+            <div class="palette-sticker text-6xl cursor-pointer hover:scale-110 active:scale-95 transition-transform text-center drop-shadow-md">🍀</div>
+        </div>
+
+        <h2 class="text-3xl text-gray-700 mb-4 font-bold border-b-4 border-orange-200 pb-2 mt-8">글쓰기 도구</h2>
+        
+        <!-- Canvas Tools -->
+        <div class="flex flex-col gap-4">
+            <button id="btn-pen" onclick="setTool('pen')" class="tool-btn active-tool bg-gray-100 border-4 border-gray-300 text-3xl py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
+                ✏️ 펜
+            </button>
+            <button id="btn-eraser" onclick="setTool('eraser')" class="tool-btn bg-gray-100 border-4 border-gray-300 text-3xl py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors">
+                🧽 지우개
+            </button>
+            <button onclick="clearCanvas()" class="bg-red-50 text-red-500 border-4 border-red-200 text-2xl py-3 rounded-2xl mt-2 active:bg-red-100 transition-colors">
+                🗑️ 모두 지우기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. SVG Text Coloring Logic
+        // ==========================================
+        const colors = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
+        
+        document.querySelectorAll('.jamo-path').forEach(path => {
+            // Pointerdown covers both mouse and touch efficiently
+            path.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                // Pick a random color different from current
+                let newColor;
+                do {
+                    newColor = colors[Math.floor(Math.random() * colors.length)];
+                } while (path.style.stroke === newColor);
+                
+                path.style.stroke = newColor;
+            });
+        });
+
+        // ==========================================
+        // 2. Sticker Drag and Drop (Multi-touch Support)
+        // ==========================================
+        const activePointers = {};
+        const artboard = document.getElementById('artboard');
+        const stickerLayer = document.getElementById('sticker-layer');
+
+        // Handle grabbing from palette
+        document.querySelectorAll('.palette-sticker').forEach(sticker => {
+            sticker.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                
+                // Clone the sticker
+                const clone = document.createElement('div');
+                clone.innerHTML = sticker.innerHTML;
+                clone.className = 'absolute text-[5rem] cursor-grabbing select-none drop-shadow-xl z-50 pointer-events-auto origin-center transition-transform';
+                
+                // Add to artboard sticker layer
+                stickerLayer.appendChild(clone);
+                
+                // Calculate position relative to artboard
+                const artboardRect = artboard.getBoundingClientRect();
+                
+                // Approximate center offset of a 5rem sticker
+                const offsetX = 40; 
+                const offsetY = 40;
+
+                let startX = e.clientX - artboardRect.left - offsetX;
+                let startY = e.clientY - artboardRect.top - offsetY;
+
+                clone.style.left = `${startX}px`;
+                clone.style.top = `${startY}px`;
+
+                // Capture pointer
+                clone.setPointerCapture(e.pointerId);
+                
+                activePointers[e.pointerId] = {
+                    element: clone,
+                    offsetX: offsetX,
+                    offsetY: offsetY
+                };
+                
+                // Add pop effect on creation
+                clone.style.transform = 'scale(1.2)';
+            });
+        });
+
+        // Handle moving existing stickers on artboard
+        stickerLayer.addEventListener('pointerdown', (e) => {
+            if(e.target.parentElement === stickerLayer) {
+                e.preventDefault();
+                const el = e.target;
+                const elRect = el.getBoundingClientRect();
+                
+                // Calculate where inside the sticker we grabbed
+                const offsetX = e.clientX - elRect.left;
+                const offsetY = e.clientY - elRect.top;
+
+                // Bring to front
+                stickerLayer.appendChild(el);
+                
+                el.setPointerCapture(e.pointerId);
+                el.style.transform = 'scale(1.2)';
+
+                activePointers[e.pointerId] = {
+                    element: el,
+                    offsetX: offsetX,
+                    offsetY: offsetY
+                };
+            }
+        });
+
+        // Global pointer move
+        document.addEventListener('pointermove', (e) => {
+            if (activePointers[e.pointerId]) {
+                e.preventDefault();
+                const pt = activePointers[e.pointerId];
+                const artboardRect = artboard.getBoundingClientRect();
+                
+                let x = e.clientX - artboardRect.left - pt.offsetX;
+                let y = e.clientY - artboardRect.top - pt.offsetY;
+
+                pt.element.style.left = `${x}px`;
+                pt.element.style.top = `${y}px`;
+            }
+        });
+
+        // Global pointer up / cancel
+        const endPointer = (e) => {
+            if (activePointers[e.pointerId]) {
+                const el = activePointers[e.pointerId].element;
+                el.style.transform = 'scale(1)';
+                el.releasePointerCapture(e.pointerId);
+                
+                // Check if thrown out of bounds, if so, delete it
+                const artboardRect = artboard.getBoundingClientRect();
+                if(e.clientX < artboardRect.left || e.clientX > artboardRect.right || 
+                   e.clientY < artboardRect.top || e.clientY > artboardRect.bottom) {
+                    el.remove();
+                }
+                
+                delete activePointers[e.pointerId];
+            }
+        };
+
+        document.addEventListener('pointerup', endPointer);
+        document.addEventListener('pointercancel', endPointer);
+
+
+        // ==========================================
+        // 3. Fine Motor Canvas (Name Writing)
+        // ==========================================
+        const canvas = document.getElementById('name-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        
+        let isDrawing = false;
+        let currentTool = 'pen'; // 'pen' or 'eraser'
+
+        // Resize canvas to physical pixels to prevent blurring
+        function resizeCanvas() {
+            // Save current content
+            const tempCanvas = document.createElement('canvas');
+            const tCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            tCtx.drawImage(canvas, 0, 0);
+
+            // Resize
+            const rect = canvasWrapper.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            // Setup default styles after resize
+            setupContext();
+
+            // Restore content
+            ctx.drawImage(tempCanvas, 0, 0);
+        }
+
+        function setupContext() {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            if(currentTool === 'pen') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = '#1F2937'; // Dark gray
+                ctx.lineWidth = 12; // Thick for fine motor skills
+            } else {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.lineWidth = 60; // Huge eraser to simulate physical wiping
+            }
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        // Initial setup
+        setTimeout(resizeCanvas, 100);
+
+        function setTool(tool) {
+            currentTool = tool;
+            setupContext();
+            
+            // UI Update
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.remove('bg-orange-100', 'border-orange-400', 'active-tool');
+                btn.classList.add('bg-gray-100', 'border-gray-300');
+            });
+            
+            const activeBtn = document.getElementById(`btn-${tool}`);
+            activeBtn.classList.remove('bg-gray-100', 'border-gray-300');
+            activeBtn.classList.add('bg-orange-100', 'border-orange-400', 'active-tool');
+        }
+        
+        // Initialize UI tool state
+        setTool('pen');
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Canvas Drawing Events
+        function getCanvasPoint(e) {
+            const rect = canvas.getBoundingClientRect();
+            // Handle both touch and mouse
+            let clientX, clientY;
+            
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        const startDrawing = (e) => {
+            e.preventDefault();
+            isDrawing = true;
+            const pt = getCanvasPoint(e);
+            ctx.beginPath();
+            ctx.moveTo(pt.x, pt.y);
+            // Draw a dot immediately for taps
+            ctx.lineTo(pt.x, pt.y);
+            ctx.stroke();
+        };
+
+        const draw = (e) => {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pt = getCanvasPoint(e);
+            ctx.lineTo(pt.x, pt.y);
+            ctx.stroke();
+        };
+
+        const stopDrawing = (e) => {
+            if (!isDrawing) return;
+            e.preventDefault();
+            isDrawing = false;
+            ctx.closePath();
+        };
+
+        // Mouse Events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDrawing);
+
+        // Touch Events
+        canvas.addEventListener('touchstart', startDrawing, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        window.addEventListener('touchend', stopDrawing);
+        window.addEventListener('touchcancel', stopDrawing);
+
+        // ==========================================
+        // 4. PDF 저장 기능 (html2pdf)
+        // ==========================================
+      function saveAsPDF() {
+    const artboard = document.getElementById('artboard');
+    
+    // PDF 생성 옵션 (A4 가로형 꽉 차게, 화면 잘림 방지)
+    const opt = {
+        margin: 0,
+        filename: '한글날_활동지.pdf',
+        image: { type: 'jpeg', quality: 1.0 },
+        html2canvas: { 
+            scale: 2,           // 화질 유지
+            useCORS: true,      // 외부 이미지(스티커 등) 허용
+            scrollY: 0,         // 스크롤 인식 오류 방지
+            scrollX: 0,
+            width: artboard.scrollWidth,  // 활동지의 실제 전체 너비 강제 지정
+            height: artboard.scrollHeight // 활동지의 실제 전체 높이 강제 지정
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(artboard).save();
+}
+
+    </script>
+</body>
+</html>

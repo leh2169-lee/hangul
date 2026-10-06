@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>세종대왕 화면 닦기</title>
+<style>
+  body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #FDF5E6; touch-action: none; overflow: hidden; }
+  .container { position: relative; width: 800px; height: 600px; border-radius: 20px; overflow: hidden; background-color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+  .hidden-content { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  
+  /* 이미지 크기 조절 */
+  .hidden-content img { max-width: 350px; height: auto; pointer-events: none; }
+  .title-text { font-size: 50px; font-weight: bold; color: #333; margin-top: 20px; }
+  
+  canvas { position: absolute; top: 0; left: 0; cursor: crosshair; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hidden-content">
+    <!-- ★ 여기에 세종대왕 이미지 파일 이름을 적어주세요 ★ -->
+    <img src="sejong.png" alt="세종대왕">
+    <div class="title-text">한글을 만드신 세종대왕</div>
+  </div>
+  <canvas id="scratchCanvas"></canvas>
+</div>
+<script>
+  const canvas = document.getElementById('scratchCanvas');
+  const ctx = canvas.getContext('2d');
+  const container = document.querySelector('.container');
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+
+  ctx.fillStyle = '#CCCCCC';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let isDrawing = false;
+  let scratchedPixels = 0;
+  const totalPixels = canvas.width * canvas.height;
+
+  function scratch(x, y) {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(x, y, 70, 0, Math.PI * 2);
+    ctx.fill();
+    
+    scratchedPixels += (Math.PI * 70 * 70); 
+    if (scratchedPixels > totalPixels * 0.4) {
+      canvas.style.transition = 'opacity 1s';
+      canvas.style.opacity = '0';
+      setTimeout(() => canvas.style.pointerEvents = 'none', 1000);
+    }
+  }
+
+  function handlePointer(e) {
+    e.preventDefault();
+    if(e.type === 'pointerdown') isDrawing = true;
+    if(e.type === 'pointerup' || e.type === 'pointerleave') isDrawing = false;
+    if(isDrawing) {
+      const rect = canvas.getBoundingClientRect();
+      scratch(e.clientX - rect.left, e.clientY - rect.top);
+    }
+  }
+
+  canvas.addEventListener('pointerdown', handlePointer);
+  canvas.addEventListener('pointermove', handlePointer);
+  canvas.addEventListener('pointerup', handlePointer);
+  canvas.addEventListener('pointerleave', handlePointer);
+</script>
+</body>
+</html>

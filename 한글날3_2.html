@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>한글날 짝 맞추기</title>
+<style>
+  body { margin: 0; background: #F0F8FF; display: flex; justify-content: center; align-items: center; height: 100vh; touch-action: none; overflow: hidden; }
+  .game-board { width: 900px; height: 500px; background: white; border-radius: 30px; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 10px 20px rgba(0,0,0,0.05); position: relative; }
+  
+  /* 이미지 기본 드래그 방지 및 크기 설정 */
+  img { width: 250px; height: auto; -webkit-user-drag: none; user-select: none; pointer-events: none; }
+  
+  /* 그림자 처리: 회색빛으로 만들고 투명도 조절 */
+  .shadow img { filter: grayscale(100%) brightness(0.5); opacity: 0.3; } 
+  
+  .item { cursor: grab; position: absolute; left: 80px; z-index: 10; transition: transform 0.1s; }
+  .item.dragging { opacity: 0.8; cursor: grabbing; transform: scale(1.1); }
+  .success-msg { position: absolute; font-size: 60px; color: #FF4500; font-weight: bold; display: none; top: -80px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="game-board" id="board">
+  <div class="success-msg" id="msg">정답입니다! 👏</div>
+  <div style="width: 250px;"></div> 
+  
+  <div class="shadow" id="target">
+    <!-- ★ 타겟(그림자) 이미지: 선생님의 이미지 파일명으로 변경 -->
+    <img src="sejong.png" alt="그림자">
+  </div>
+  
+  <div class="item" id="draggable">
+    <!-- ★ 드래그할 진짜 이미지: 위와 동일한 파일명으로 변경 -->
+    <img src="sejong.png" alt="진짜그림">
+  </div>
+</div>
+<script>
+  const item = document.getElementById('draggable');
+  const target = document.getElementById('target');
+  const msg = document.getElementById('msg');
+  const board = document.getElementById('board');
+  let isDragging = false;
+  let offsetX, offsetY;
+
+  item.addEventListener('pointerdown', (e) => {
+    isDragging = true;
+    item.classList.add('dragging');
+    item.setPointerCapture(e.pointerId);
+    const rect = item.getBoundingClientRect();
+    offsetX = e.clientX - rect.left;
+    offsetY = e.clientY - rect.top;
+  });
+
+  item.addEventListener('pointermove', (e) => {
+    if (!isDragging) return;
+    const boardRect = board.getBoundingClientRect();
+    let newX = e.clientX - boardRect.left - offsetX;
+    let newY = e.clientY - boardRect.top - offsetY;
+    item.style.left = `${newX}px`;
+    item.style.top = `${newY}px`;
+  });
+
+  item.addEventListener('pointerup', (e) => {
+    isDragging = false;
+    item.classList.remove('dragging');
+    
+    const itemRect = item.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    
+    const overlap = !(itemRect.right < targetRect.left || itemRect.left > targetRect.right || itemRect.bottom < targetRect.top || itemRect.top > targetRect.bottom);
+
+    if (overlap) {
+      item.style.left = target.offsetLeft + 'px';
+      item.style.top = target.offsetTop + 'px';
+      msg.style.display = 'block';
+      item.style.pointerEvents = 'none'; 
+    } else {
+      item.style.left = '80px';
+      item.style.top = '';
+    }
+  });
+</script>
+</body>
+</html>
